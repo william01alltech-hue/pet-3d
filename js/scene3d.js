@@ -45,14 +45,32 @@ class PetScene3D {
         this.renderer.toneMappingExposure = 1.1;
         this.container.appendChild(this.renderer.domElement);
 
-        // 4. 軌道控制器
+        // 4. 軌道控制器（針對手機與平板觸控專屬優化）
         this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.05;
+        this.controls.dampingFactor = 0.06;
         this.controls.maxPolarAngle = Math.PI / 2 - 0.05;
-        this.controls.minDistance = 2.0;
+        this.controls.minDistance = 1.8;
         this.controls.maxDistance = 8.5;
         this.controls.target.set(0, 0.65, 0);
+        this.controls.touches = {
+            ONE: THREE.TOUCH.ROTATE,
+            TWO: THREE.TOUCH.DOLLY_PAN
+        };
+
+        // 手機/平板動態手勢操作提示與自動淡出
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        const hintEl = document.getElementById('camera-hint');
+        if (hintEl) {
+            if (isTouch) {
+                hintEl.innerHTML = '<span>👆 單指旋轉・雙指捏合縮放・輕點寵物互動</span>';
+            }
+            setTimeout(() => {
+                hintEl.style.transition = 'opacity 1s ease';
+                hintEl.style.opacity = '0';
+                setTimeout(() => { hintEl.style.display = 'none'; }, 1000);
+            }, 4500);
+        }
 
         // 5. 建立燈光
         this.setupLights();
@@ -206,9 +224,27 @@ class PetScene3D {
 
     bindEvents() {
         window.addEventListener('resize', () => this.onWindowResize());
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => this.onWindowResize(), 150);
+        });
 
+        // 觸控與滑鼠防誤觸機制：旋轉/平移鏡頭時不觸發互動，只有輕觸（位移 < 14px）才觸發寵物互動
+        let pointerDownPos = null;
         this.renderer.domElement.addEventListener('pointerdown', (e) => {
-            this.handlePointerDown(e);
+            pointerDownPos = { x: e.clientX, y: e.clientY, time: performance.now() };
+        });
+
+        this.renderer.domElement.addEventListener('pointerup', (e) => {
+            if (!pointerDownPos) return;
+            const dx = e.clientX - pointerDownPos.x;
+            const dy = e.clientY - pointerDownPos.y;
+            const dist = Math.hypot(dx, dy);
+            const dt = performance.now() - pointerDownPos.time;
+            pointerDownPos = null;
+
+            if (dist < 14 && dt < 450) {
+                this.handlePointerDown(e);
+            }
         });
 
         const resetBtn = document.getElementById('camera-reset-btn');
@@ -256,6 +292,10 @@ class PetScene3D {
     }
 
     onHitPart(part, worldPoint, screenX, screenY) {
+        // 手機觸覺反饋（輕微震動）
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try { navigator.vibrate(15); } catch (_) {}
+        }
         if (part === 'ball') {
             this.ballVelY = 0.25;
             if (this.game) {

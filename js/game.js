@@ -677,6 +677,15 @@ class BlackDogGame {
     }
 
     bindEvents() {
+        // 0. 手機與觸控螢幕初次輕觸解鎖 Web Audio 音訊與觸控支援
+        const unlockAudioOnTouch = () => {
+            if (window.soundCtrl && window.soundCtrl.ensureContext) {
+                window.soundCtrl.ensureContext();
+            }
+        };
+        window.addEventListener('touchstart', unlockAudioOnTouch, { once: true, passive: true });
+        window.addEventListener('pointerdown', unlockAudioOnTouch, { once: true, passive: true });
+
         // 1. 頂部改名按鈕
         document.getElementById('edit-name-btn').addEventListener('click', () => {
             document.getElementById('rename-input').value = this.currentPet.name;
