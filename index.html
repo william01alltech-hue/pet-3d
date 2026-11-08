@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D 萌寵成長日記 🐾 | 24種3D寵物：大熊貓・耳廓狐・長頸鹿・北極熊・海獺・無尾熊・垂耳兔・獅子・水豚・小熊貓・雪豹・帝企鵝</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Zen+Maru+Gothic:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- 引入 Three.js 3D 引擎與 OrbitControls 軌道控制器 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body class="theme-room">
+    <!-- 主遊戲容器 -->
+    <div id="game-app">
+        <!-- 頂部資訊列 (狀態與幣別) -->
+        <header class="top-nav glass-panel">
+            <div class="pet-profile" id="pet-profile-btn" title="點擊切換與查看我的寵物庫">
+                <div class="avatar-ring">
+                    <span class="pet-emoji" id="current-pet-avatar">🐶</span>
+                </div>
+                <div class="pet-meta">
+                    <div class="name-row">
+                        <span id="pet-name-display">黑寶 (Kuro)</span>
+                        <button id="edit-name-btn" title="修改名字" aria-label="修改名字">✏️</button>
+                    </div>
+                    <div class="level-row">
+                        <span class="badge" id="pet-stage-badge">萌萌小奶狗</span>
+                        <span class="level-text">Lv.<span id="pet-level">1</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 經驗值條 -->
+            <div class="exp-container">
+                <div class="exp-label">
+                    <span>成長值</span>
+                    <span id="exp-text">0 / 100</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill exp-fill" id="exp-bar" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <!-- 金幣與系統按鈕 -->
+            <div class="top-actions">
+                <div class="currency-pill">
+                    <span class="coin-icon">🪙</span>
+                    <span id="coin-amount">150</span>
+                </div>
+                <button id="my-pets-btn" class="icon-btn" title="我的寵物庫">🐾</button>
+                <button id="save-manager-btn" class="icon-btn" title="進度與存檔管理">💾</button>
+                <button id="camera-reset-btn" class="icon-btn" title="重設 3D 視角">🎥</button>
+                <button id="sound-toggle-btn" class="icon-btn" title="切換音效">🔊</button>
+                <button id="diary-btn" class="icon-btn" title="成長日記與成就">📖</button>
+            </div>
+        </header>
+
+        <!-- 3D 遊戲主舞台區域 -->
+        <main class="viewport-stage" id="stage">
+            <!-- 3D WebGL 渲染畫布容器 -->
+            <div id="webgl-container"></div>
+
+            <!-- 3D 視角操作提示 -->
+            <div class="camera-hint-pill" id="camera-hint">
+                <span>🖱️ 拖曳可 360° 旋轉視角・滾輪可縮放・點擊寵物互動</span>
+            </div>
+
+            <!-- 浮動通知與對話泡泡 -->
+            <div class="speech-bubble" id="pet-speech">
+                <span id="speech-text">嚶嚶～ 汪！主人抱抱！🐾</span>
+            </div>
+
+            <!-- 3D 玩遊戲互動橫幅提示 -->
+            <div class="minigame-banner hidden" id="minigame-banner">
+                <span class="banner-icon" id="minigame-banner-icon">🎾</span>
+                <span class="banner-text" id="minigame-banner-text">投出玩具球！</span>
+            </div>
+
+            <!-- 2D 螢幕疊加特效層 -->
+            <div id="fx-layer"></div>
+        </main>
+
+        <!-- 底部狀態儀表盤 (飽食/心情/體力/清潔) -->
+        <section class="stats-card glass-panel">
+            <div class="stat-item" id="stat-hunger-item">
+                <div class="stat-header">
+                    <span class="stat-icon" id="stat-hunger-icon">🍼</span>
+                    <span class="stat-name">飽食度</span>
+                    <span class="stat-val" id="val-hunger">85%</span>
+                </div>
+                <div class="stat-bar"><div class="fill hunger-fill" id="bar-hunger" style="width: 85%"></div></div>
+            </div>
+
+            <div class="stat-item" id="stat-mood-item">
+                <div class="stat-header">
+                    <span class="stat-icon">💖</span>
+                    <span class="stat-name">心情值</span>
+                    <span class="stat-val" id="val-mood">90%</span>
+                </div>
+                <div class="stat-bar"><div class="fill mood-fill" id="bar-mood" style="width: 90%"></div></div>
+            </div>
+
+            <div class="stat-item" id="stat-energy-item">
+                <div class="stat-header">
+                    <span class="stat-icon">⚡</span>
+                    <span class="stat-name">體力值</span>
+                    <span class="stat-val" id="val-energy">75%</span>
+                </div>
+                <div class="stat-bar"><div class="fill energy-fill" id="bar-energy" style="width: 75%"></div></div>
+            </div>
+
+            <div class="stat-item" id="stat-clean-item">
+                <div class="stat-header">
+                    <span class="stat-icon">🧼</span>
+                    <span class="stat-name">清潔度</span>
+                    <span class="stat-val" id="val-clean">95%</span>
+                </div>
+                <div class="stat-bar"><div class="fill clean-fill" id="bar-clean" style="width: 95%"></div></div>
+            </div>
+        </section>
+
+        <!-- 主要操作工具列 -->
+        <nav class="action-dock glass-panel">
+            <button class="dock-btn" id="act-feed" data-target="feed-menu">
+                <span class="dock-emoji">🍼</span>
+                <span class="dock-label">餵食</span>
+            </button>
+            <button class="dock-btn" id="act-pet" data-target="pet-touch">
+                <span class="dock-emoji">✋</span>
+                <span class="dock-label">撫摸</span>
+            </button>
+            <button class="dock-btn" id="act-bath" data-target="bath-action">
+                <span class="dock-emoji">🛁</span>
+                <span class="dock-label">洗澡</span>
+            </button>
+            <button class="dock-btn" id="act-train" data-target="train-modal">
+                <span class="dock-emoji">🎓</span>
+                <span class="dock-label">訓練</span>
+            </button>
+            <button class="dock-btn" id="act-play" title="玩遊戲">
+                <span class="dock-emoji">🎾</span>
+                <span class="dock-label">玩遊戲</span>
+            </button>
+            <button class="dock-btn" id="act-sleep" data-target="sleep-toggle">
+                <span class="dock-emoji" id="sleep-btn-icon">🌙</span>
+                <span class="dock-label" id="sleep-btn-text">睡覺</span>
+            </button>
+            <button class="dock-btn" id="act-shop" data-target="shop-modal">
+                <span class="dock-emoji">🛍️</span>
+                <span class="dock-label">商城</span>
+            </button>
+        </nav>
+
+        <!-- 彈出子選單：餵食選單 -->
+        <div class="floating-drawer hidden" id="feed-menu">
+            <div class="drawer-header">
+                <h3>🍽️ 選擇美味（餵錯會食物中毒掉體力喔！）</h3>
+                <button class="close-drawer-btn">&times;</button>
+            </div>
+            <div class="food-grid">
+                <button class="food-item-btn" data-food="chicken">
+                    <span class="food-icon">🍗</span>
+                    <span class="food-title">鮮嫩鮮雞塊</span>
+                    <span class="food-boost">+45 飽食 / +20 體力</span>
+                    <span class="food-price">🪙 15</span>
+                </button>
+                <button class="food-item-btn" data-food="banana">
+                    <span class="food-icon">🍌</span>
+                    <span class="food-title">香甜熟香蕉</span>
+                    <span class="food-boost">+40 飽食 / +35 心情</span>
+                    <span class="food-price">🪙 10</span>
+                </button>
+                <button class="food-item-btn" data-food="milk">
+                    <span class="food-icon">🍼</span>
+                    <span class="food-title">汪汪配方奶</span>
+                    <span class="food-boost">+25 飽食 / +20 體力</span>
+                    <span class="food-price">免費</span>
+                </button>
+                <button class="food-item-btn" data-food="biscuit">
+                    <span class="food-icon">🦴</span>
+                    <span class="food-title">磨牙骨小餅乾</span>
+                    <span class="food-boost">+30 飽食 / +35 心情</span>
+                    <span class="food-price">🪙 12</span>
+                </button>
+                <button class="food-item-btn" data-food="puree">
+                    <span class="food-icon">🍲</span>
+                    <span class="food-title">特製軟嫩肉泥</span>
+                    <span class="food-boost">+50 飽食 / +25 心情</span>
+                    <span class="food-price">🪙 15</span>
+                </button>
+                <button class="food-item-btn" data-food="grass">
+                    <span class="food-icon">🌿</span>
+                    <span class="food-title">草原鮮嫩青草</span>
+                    <span class="food-boost">+35 飽食 / +30 體力</span>
+                    <span class="food-price">🪙 8</span>
+                </button>
+                <button class="food-item-btn" data-food="tuna">
+                    <span class="food-icon">🐟</span>
+                    <span class="food-title">深海極鮮鮪魚</span>
+                    <span class="food-boost">+55 飽食 / +40 心情</span>
+                    <span class="food-price">🪙 18</span>
+                </button>
+                <button class="food-item-btn" data-food="nuts">
+                    <span class="food-icon">🌰</span>
+                    <span class="food-title">香脆綜合堅果</span>
+                    <span class="food-boost">+35 飽食 / +30 心情</span>
+                    <span class="food-price">🪙 10</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 模態視窗：進度選擇與存檔管理 -->
+        <div class="modal-backdrop hidden" id="save-select-modal">
+            <div class="modal-card modal-large save-modal-card">
+                <div class="modal-header">
+                    <h2>💾 冒險進度與存檔管理</h2>
+                    <button class="modal-close-btn">&times;</button>
+                </div>
+                <p class="modal-desc">
+                    選擇要載入的遊戲存檔進度，隨時保存或切換，進度永不丟失！也可點選「全新開始」重置為只剩小黑。
+                </p>
+
+                <!-- 存檔槽位列表 -->
+                <div class="save-slots-grid" id="save-slots-container">
+                    <!-- JS 動態渲染各槽位存檔卡片 -->
+                </div>
+
+                <!-- 底部操作功能列 -->
+                <div class="save-bottom-toolbar">
+                    <button class="btn-reset-new" id="btn-reset-new-game" title="重新開始，清空進度並僅保留小黑">
+                        <span>🔄</span> 全新開始（重置・僅留小黑）
+                    </button>
+                    <div class="save-file-group">
+                        <button class="btn-file-io" id="btn-export-save" title="下載存檔備份至電腦">
+                            <span>📤</span> 匯出存檔檔案
+                        </button>
+                        <button class="btn-file-io" id="btn-import-save-trigger" title="從電腦讀取存檔檔案">
+                            <span>📥</span> 匯入存檔檔案
+                        </button>
+                        <input type="file" id="input-import-save" accept=".json" style="display: none;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 模態視窗：我的寵物庫 (切換寵物) -->
+        <div class="modal-backdrop hidden" id="pets-modal">
+            <div class="modal-card modal-large">
+                <div class="modal-header">
+                    <h2>🐾 我的寵物家族</h2>
+                    <button class="modal-close-btn">&times;</button>
+                </div>
+                <p class="modal-desc">選擇你想要陪伴的 3D 萌寵夥伴！</p>
+                <div class="my-pets-grid" id="my-pets-list">
+                    <!-- JS 動態渲染已領養寵物卡片 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 模態視窗：幼犬訓練特技 -->
+        <div class="modal-backdrop hidden" id="train-modal">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h2>🎓 萌寵啟蒙訓練場</h2>
+                    <button class="modal-close-btn">&times;</button>
+                </div>
+                <p class="modal-desc">教導小萌寵學會可愛動作，提升親密度與經驗值！</p>
+                <div class="skills-list" id="skills-list">
+                    <!-- JS 動態生成技能列表 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 模態視窗：小遊戲大廳 -->
+        <div class="modal-backdrop hidden" id="games-modal">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h2>🎮 3D 戶外遊玩與迷你遊戲</h2>
+                    <button class="modal-close-btn">&times;</button>
+                </div>
+                <p class="modal-desc">帶寵物出門玩耍，賺取金幣與成長經驗！</p>
+                <div class="game-select-grid">
+                    <div class="game-card" id="open-frisbee-game">
+                        <div class="game-card-icon">🥏</div>
+                        <div class="game-card-info">
+                            <h3>3D 接飛盤大挑戰</h3>
+                            <p>在陽光草地快樂奔跑跳躍咬飛盤！</p>
+                            <button class="primary-btn">立即開始 🚀</button>
+                        </div>
+                    </div>
+                    <div class="game-card" id="open-cups-game">
+                        <div class="game-card-icon">🥣</div>
+                        <div class="game-card-info">
+                            <h3>3D 猜猜骨頭在哪裡</h3>
+                            <p>3D 碗盤洗牌大考驗！找出美味的骨頭！</p>
+                            <button class="primary-btn">開始猜碗 🎲</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 模態視窗：裝扮、場景與寵物領養商城 -->
+        <div class="modal-backdrop hidden" id="shop-modal">
+            <div class="modal-card modal-large">
+                <div class="modal-header">
+                    <h2>🛍️ 萌寵精品與領養商城</h2>
+                    <button class="modal-close-btn">&times;</button>
+                </div>
+                <div class="shop-tabs">
+                    <button class="shop-tab active" data-tab="adopt">🐾 領養寵物</button>
+                    <button class="shop-tab" data-tab="accessories">🎀 3D 萌萌裝扮</button>
+                    <button class="shop-tab" data-tab="rooms">🏡 3D 場景主題</button>
+                </div>
+                <div class="shop-content-area" id="shop-items-container">
+                    <!-- JS 動態載入商品 / 領養卡片 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 模態視窗：成長日記與成就 -->
+        <div class="modal-backdrop hidden" id="diary-modal">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h2>📖 萌寵的 3D 成長日記</h2>
+                    <button class="modal-close-btn">&times;</button>
+                </div>
+                <div class="diary-stats-summary">
+                    <div class="summary-box">
+                        <span class="box-num" id="total-days-val">1</span>
+                        <span class="box-label">相伴天數</span>
+                    </div>
+                    <div class="summary-box">
+                        <span class="box-num" id="total-feed-val">0</span>
+                        <span class="box-label">餵食次數</span>
+                    </div>
+                    <div class="summary-box">
+                        <span class="box-num" id="total-play-val">0</span>
+                        <span class="box-label">遊戲次數</span>
+                    </div>
+                    <div class="summary-box">
+                        <span class="box-num" id="intimacy-val">100%</span>
+                        <span class="box-label">親密默契</span>
+                    </div>
+                </div>
+                <h3>🏆 成長成就</h3>
+                <div class="achievements-list" id="achievements-list">
+                    <!-- JS 動態生成成就 -->
+                </div>
+                <div style="margin-top: 20px; text-align: center;">
+                    <button id="reset-game-btn" class="secondary-btn" style="background: rgba(239, 68, 68, 0.12); color: #ff6b6b; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.85rem; padding: 8px 16px; border-radius: 20px; cursor: pointer;">🔄 重新開始遊戲（重設為只有小黑）</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 模態視窗：改名 -->
+        <div class="modal-backdrop hidden" id="rename-modal">
+            <div class="modal-card modal-small">
+                <div class="modal-header">
+                    <h2>🏷️ 為當前寵物命名</h2>
+                    <button class="modal-close-btn">&times;</button>
+                </div>
+                <div class="rename-input-wrap">
+                    <input type="text" id="rename-input" maxlength="10" placeholder="例如：黑寶、麻糬、阿狐">
+                    <button class="primary-btn" id="confirm-rename-btn">確定儲存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 獨立全螢幕 3D 小遊戲 1：接飛盤遊戲容器 -->
+        <div class="minigame-fullscreen hidden" id="frisbee-game-container">
+            <div class="minigame-header">
+                <div class="game-hud">
+                    <span>得分: <strong id="frisbee-score">0</strong></span>
+                    <span>時間: <strong id="frisbee-timer">30</strong>s</span>
+                    <span>連擊: <strong id="frisbee-combo">0</strong>x</span>
+                </div>
+                <button class="exit-minigame-btn" id="exit-frisbee-btn">結束遊戲</button>
+            </div>
+            <div class="frisbee-canvas-wrap">
+                <canvas id="frisbee-canvas" width="800" height="450"></canvas>
+            </div>
+            <div class="frisbee-controls">
+                <p>點擊畫面或按【空白鍵 / 點擊跳躍】讓萌寵跳躍咬住飛盤！</p>
+                <button class="jump-btn-action" id="frisbee-jump-btn">🦘 跳躍咬飛盤！</button>
+            </div>
+        </div>
+
+        <!-- 獨立全螢幕 3D 小遊戲 2：猜骨頭杯子遊戲 -->
+        <div class="minigame-fullscreen hidden" id="cups-game-container">
+            <div class="minigame-header">
+                <div class="game-hud">
+                    <span>連續猜對: <strong id="cups-streak">0</strong> 次</span>
+                    <span>獲得金幣: <strong id="cups-coins">0</strong> 🪙</span>
+                </div>
+                <button class="exit-minigame-btn" id="exit-cups-btn">離開</button>
+            </div>
+            <div class="cups-arena">
+                <h3 id="cups-status-text">請仔細看好骨頭被藏在哪個碗中...</h3>
+                <div class="cups-row" id="cups-row">
+                    <div class="cup-slot" data-index="0">
+                        <div class="cup-item" id="cup-0">🥣</div>
+                        <div class="cup-prize hidden" id="prize-0">🦴</div>
+                    </div>
+                    <div class="cup-slot" data-index="1">
+                        <div class="cup-item" id="cup-1">🥣</div>
+                        <div class="cup-prize hidden" id="prize-1">🦴</div>
+                    </div>
+                    <div class="cup-slot" data-index="2">
+                        <div class="cup-item" id="cup-2">🥣</div>
+                        <div class="cup-prize hidden" id="prize-2">🦴</div>
+                    </div>
+                </div>
+                <button class="primary-btn" id="start-cups-round-btn">開始洗碗挑戰！</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 核心腳本載入 -->
+    <script src="js/audio.js?v=v19_lion_slim_athletic"></script>
+    <script src="js/pet3d.js?v=v19_lion_slim_athletic"></script>
+    <script src="js/scene3d.js?v=v19_lion_slim_athletic"></script>
+    <script src="js/minigames.js?v=v19_lion_slim_athletic"></script>
+    <script src="js/game.js?v=v19_lion_slim_athletic"></script>
+</body>
+</html>

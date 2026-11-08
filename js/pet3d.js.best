@@ -1,0 +1,1001 @@
+/**
+ * 3D 虛擬寵物模型與骨骼動畫控制器 (Virtual Pet 3D Engine) - 參考圖寫實升級版
+ * 完美還原參考圖細節：
+ * 1. 🐕‍🦺 全黑立耳小黑狗 (Pointy-Eared Black Puppy)
+ * 2. 🐱 緬因貓幼崽 (Maine Coon Kitten) - 銀灰煙燻虎斑、金色大圓眼、層次蓬鬆大圍脖、銀爪項鍊
+ * 3. 🦊 狐狸幼崽 (Fox Kit) - 三種自選款式：
+ *    - 🟠 橘色赤狐 (Red Fox) - 暖橘白頰、黑靴小爪、白尖大尾、甜美微笑、銀爪項鍊
+ *    - ⚪ 白色北極狐 (Arctic Fox) - 棉花糖雪球狐、眯眼甜笑、超蓬鬆白尾
+ *    - ⚫ 黑色銀狐 (Silver Fox) - 銀霜黑灰毛色、琥珀大眼、白頰胸毛、白尖尾巴、銀爪項鍊
+ */
+
+class VirtualPet3D {
+    constructor(petType = 'dog', colorVariant = 'default') {
+        this.petType = petType; // 'dog' | 'cat' | 'fox'
+        this.colorVariant = colorVariant; // for fox: 'red' | 'white' | 'silver'
+
+        this.group = new THREE.Group();
+        this.group.name = 'VirtualPet3D_' + petType;
+
+        this.currentState = 'idle';
+        this.blinkProgress = 0;
+        this.isBlinking = false;
+        this.nextBlinkTime = 2.0;
+
+        // 立耳抖動彈簧
+        this.earTwitchL = 0;
+        this.earTwitchR = 0;
+        this.earVelocityL = 0;
+        this.earVelocityR = 0;
+
+        // 裝扮物件對應表
+        this.accessories = {};
+        this.equipped = {
+            collar: 'red_collar',
+            glasses: null,
+            hat: null,
+            cape: null
+        };
+
+        this.growthScale = 0.75;
+
+        // 構建材質與 3D 結構
+        this.initMaterials();
+        this.buildPetMesh();
+        this.buildAccessories();
+        this.setGrowthScale(0.75);
+    }
+
+    initMaterials() {
+        // --- 1. 黑狗材質 ---
+        this.matBlackCoat = new THREE.MeshStandardMaterial({
+            color: 0x111317,
+            roughness: 0.35,
+            metalness: 0.15
+        });
+
+        // --- 2. 緬因貓材質 (高級暖棕煙燻虎斑長毛 Maine Coon) ---
+        this.matCatCoat = new THREE.MeshStandardMaterial({
+            color: 0x8a6340, // 溫暖棕褐底色 (Classic brown tabby)
+            roughness: 0.72,
+            metalness: 0.0
+        });
+        this.matCatCoatDark = new THREE.MeshStandardMaterial({
+            color: 0x4a3018, // 深棕虎斑條紋
+            roughness: 0.75
+        });
+        this.matCatFluff = new THREE.MeshStandardMaterial({
+            color: 0xf5e6d0, // 奶油暖白 - 胸前豪華大圍脖
+            roughness: 0.9,
+            metalness: 0.0
+        });
+        this.matCatFluffInner = new THREE.MeshStandardMaterial({
+            color: 0xfff8f0, // 純奶白內層
+            roughness: 0.95
+        });
+        this.matCatEarTuft = new THREE.MeshStandardMaterial({
+            color: 0x5c3d1e, // 深棕耳尖簇毛
+            roughness: 0.75
+        });
+        this.matCatEye = new THREE.MeshStandardMaterial({
+            color: 0x22c55e, // 翠綠色大眼 (Maine Coon 特徵)
+            roughness: 0.1,
+            metalness: 0.05,
+            emissive: 0x16a34a,
+            emissiveIntensity: 0.4
+        });
+        this.matCatNose = new THREE.MeshStandardMaterial({
+            color: 0xff8fab, // 嫩粉色三角鼻
+            roughness: 0.2
+        });
+        this.matCatMuzzle = new THREE.MeshStandardMaterial({
+            color: 0xd4b896, // 淡棕色口鼻墊
+            roughness: 0.8
+        });
+
+        // --- 3. 狐狸材質 (赤狐 / 北極狐 / 銀狐) ---
+        if (this.colorVariant === 'white') {
+            // ⚪ 白色北極狐 (參考圖 1：棉花糖般超蓬鬆純白雪球狐)
+            this.matFoxCoat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.0 });
+            this.matFoxWhite = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.9 });
+            this.matFoxPaw = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+            this.matFoxEarBack = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.7 });
+            this.matFoxEye = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.2 }); // 眯眼黑色甜笑大眼
+        } else if (this.colorVariant === 'silver') {
+            // ⚫ 黑色銀狐 (參考圖 2：銀霜黑灰毛色、琥珀大眼、白頰胸毛、白尾尖)
+            this.matFoxCoat = new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.55, metalness: 0.1 }); // 銀灰霜毛
+            this.matFoxWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 }); // 純白頰與胸毛
+            this.matFoxPaw = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.6 }); // 深黑爪
+            this.matFoxEarBack = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.5 }); // 耳背純黑
+            this.matFoxEye = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.15, emissive: 0xb45309, emissiveIntensity: 0.35 }); // 璀璨琥珀大眼
+        } else {
+            // 🟠 橘色赤狐 (參考圖 4：鮮豔暖橘、白頰白圍脖、黑襪小爪、白尾尖)
+            this.matFoxCoat = new THREE.MeshStandardMaterial({ color: 0xe65100, roughness: 0.5, metalness: 0.08 }); // 暖亮橘紅
+            this.matFoxWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 }); // 雪白面頰與胸毛
+            this.matFoxPaw = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.65 }); // 黑襪小爪
+            this.matFoxEarBack = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.5 }); // 耳背黑毛
+            this.matFoxEye = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.15, emissive: 0x451a03, emissiveIntensity: 0.3 }); // 暖棕靈動大眼
+        }
+
+        // --- 4. 招牌銀爪吊墜項鍊材質 (Silver Paw Necklace) ---
+        this.matSilverNecklace = new THREE.MeshStandardMaterial({
+            color: 0xe5e7eb,
+            metalness: 0.95,
+            roughness: 0.15
+        });
+
+        // 通用五官材質
+        this.matInnerEar = new THREE.MeshStandardMaterial({ color: 0xffe4e6, roughness: 0.6 });
+        this.matNose = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.08, metalness: 0.3 });
+        this.matPupil = new THREE.MeshBasicMaterial({ color: 0x020202 });
+        this.matShine = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        this.matTongue = new THREE.MeshStandardMaterial({ color: 0xff7675, roughness: 0.2 });
+    }
+
+    buildPetMesh() {
+        this.root = new THREE.Group();
+        this.group.add(this.root);
+
+        let mainCoat = this.matBlackCoat;
+        let eyeMat = this.matBlackCoat;
+        if (this.petType === 'cat') {
+            mainCoat = this.matCatCoat;
+            eyeMat = this.matCatEye;
+        } else if (this.petType === 'fox') {
+            mainCoat = this.matFoxCoat;
+            eyeMat = this.matFoxEye;
+        } else {
+            eyeMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.15, emissive: 0x78350f, emissiveIntensity: 0.25 });
+        }
+
+        // 1. 幼崽身軀
+        this.body = new THREE.Group();
+        this.body.position.set(0, 0.65, 0);
+        this.root.add(this.body);
+
+        if (this.petType === 'fox' && this.colorVariant === 'white') {
+            // ⚪ 北極狐：棉花糖般的渾圓蓬鬆雪球身軀
+            const puffGeo = new THREE.SphereGeometry(0.48, 18, 18);
+            puffGeo.scale(1.05, 0.9, 1.3);
+            this.chestMesh = new THREE.Mesh(puffGeo, this.matFoxCoat);
+            this.chestMesh.position.set(0, -0.05, 0);
+            this.chestMesh.castShadow = true;
+            this.chestMesh.userData = { part: 'body' };
+            this.body.add(this.chestMesh);
+        } else {
+            // 苗條精緻身形
+            const chestGeo = new THREE.SphereGeometry(0.36, 16, 16);
+            chestGeo.scale(0.88, 0.95, 1.25);
+            this.chestMesh = new THREE.Mesh(chestGeo, mainCoat);
+            this.chestMesh.position.set(0, 0, 0.08);
+            this.chestMesh.castShadow = true;
+            this.chestMesh.userData = { part: 'body' };
+            this.body.add(this.chestMesh);
+
+            const bellyGeo = new THREE.SphereGeometry(0.3, 14, 14);
+            bellyGeo.scale(0.78, 0.82, 1.1);
+            const bellyMesh = new THREE.Mesh(bellyGeo, (this.petType === 'fox') ? this.matFoxWhite : mainCoat);
+            bellyMesh.position.set(0, -0.02, -0.28);
+            bellyMesh.castShadow = true;
+            bellyMesh.userData = { part: 'body' };
+            this.body.add(bellyMesh);
+        }
+
+        // 🐱 緬因貓：三層豪華超蓬鬆大圍脖 (Triple-Layer Luxurious Maine Coon Ruff)
+        if (this.petType === 'cat') {
+            // 最底層 - 主圍脖（最大，往前突出）
+            const ruff0Geo = new THREE.SphereGeometry(0.45, 18, 18);
+            ruff0Geo.scale(1.15, 1.0, 0.75);
+            const ruff0 = new THREE.Mesh(ruff0Geo, this.matCatFluff);
+            ruff0.position.set(0, 0.05, 0.28);
+            ruff0.rotation.x = -0.35;
+            ruff0.castShadow = true;
+            ruff0.userData = { part: 'body' };
+            this.body.add(ruff0);
+
+            // 中層 - 奶白圍脖
+            const ruff1Geo = new THREE.SphereGeometry(0.38, 16, 16);
+            ruff1Geo.scale(1.05, 0.9, 0.65);
+            const ruff1 = new THREE.Mesh(ruff1Geo, this.matCatFluffInner);
+            ruff1.position.set(0, 0.1, 0.35);
+            ruff1.rotation.x = -0.3;
+            ruff1.castShadow = true;
+            this.body.add(ruff1);
+
+            // 上層 - 頸部小圍脖蓬鬆感
+            const ruff2Geo = new THREE.SphereGeometry(0.28, 14, 14);
+            ruff2Geo.scale(1.2, 0.75, 0.7);
+            const ruff2 = new THREE.Mesh(ruff2Geo, this.matCatFluff);
+            ruff2.position.set(0, 0.18, 0.38);
+            ruff2.rotation.x = -0.25;
+            this.body.add(ruff2);
+
+        } else if (this.petType === 'fox') {
+            // 🦊 狐狸：胸前雪白大圍脖
+            const ruffGeo = new THREE.SphereGeometry(0.36, 16, 16);
+            ruffGeo.scale(0.95, 1.2, 0.85);
+            const ruff = new THREE.Mesh(ruffGeo, this.matFoxWhite);
+            ruff.position.set(0, -0.05, 0.32);
+            ruff.rotation.x = -0.2;
+            ruff.castShadow = true;
+            ruff.userData = { part: 'body' };
+            this.body.add(ruff);
+        }
+
+        // 2. 頸部與頭部
+        this.neck = new THREE.Group();
+        this.neck.position.set(0, 0.22, 0.45);
+        this.body.add(this.neck);
+
+        this.head = new THREE.Group();
+        this.neck.add(this.head);
+
+        if (this.petType === 'cat') {
+            // 🐱 緬因貓大頭：寬圓頭型 + 蓬鬆臉頰是 Maine Coon 的最大特徵
+            const headGeo = new THREE.SphereGeometry(0.48, 20, 20);
+            headGeo.scale(1.08, 1.02, 1.05);
+            this.headMesh = new THREE.Mesh(headGeo, mainCoat);
+            this.headMesh.position.set(0, 0.3, 0.1);
+            this.headMesh.castShadow = true;
+            this.headMesh.userData = { part: 'head' };
+            this.head.add(this.headMesh);
+
+            // 標誌性大蓬鬆臉頰 (Fluffy Cheeks - Maine Coon 最萌特徵)
+            const cheekGeo = new THREE.SphereGeometry(0.3, 16, 16);
+            cheekGeo.scale(0.85, 0.72, 0.78);
+            const cheekL = new THREE.Mesh(cheekGeo, this.matCatFluff);
+            cheekL.position.set(-0.3, 0.2, 0.3);
+            cheekL.rotation.z = -0.25;
+            const cheekR = new THREE.Mesh(cheekGeo, this.matCatFluff);
+            cheekR.position.set(0.3, 0.2, 0.3);
+            cheekR.rotation.z = 0.25;
+            this.head.add(cheekL, cheekR);
+
+            // 額頭蓬鬆頂毛（Maine Coon 標誌）
+            const topFluffGeo = new THREE.SphereGeometry(0.22, 12, 12);
+            topFluffGeo.scale(0.9, 0.65, 0.7);
+            const topFluff = new THREE.Mesh(topFluffGeo, mainCoat);
+            topFluff.position.set(0, 0.55, 0.05);
+            this.head.add(topFluff);
+
+        } else {
+            const headGeo = new THREE.SphereGeometry(0.44, 18, 18);
+            headGeo.scale(1.02, 0.98, 1.05);
+            this.headMesh = new THREE.Mesh(headGeo, mainCoat);
+            this.headMesh.position.set(0, 0.28, 0.12);
+            this.headMesh.castShadow = true;
+            this.headMesh.userData = { part: 'head' };
+            this.head.add(this.headMesh);
+
+            // 🦊 狐狸大蓬鬆臉頰
+            if (this.petType === 'fox') {
+                const cheekGeo = new THREE.SphereGeometry(0.24, 14, 14);
+                cheekGeo.scale(0.9, 0.65, 0.85);
+                const cheekL = new THREE.Mesh(cheekGeo, this.matFoxWhite);
+                cheekL.position.set(-0.25, 0.18, 0.28);
+                cheekL.rotation.z = -0.2;
+                const cheekR = new THREE.Mesh(cheekGeo, this.matFoxWhite);
+                cheekR.position.set(0.25, 0.18, 0.28);
+                cheekR.rotation.z = 0.2;
+                this.head.add(cheekL, cheekR);
+            }
+        }
+
+        // 💎 參考圖 2, 3, 4 招牌：「銀色小肉爪吊墜項鍊 (Silver Paw Necklace)」
+        if (this.petType === 'fox' || this.petType === 'cat') {
+            const necklaceGroup = new THREE.Group();
+            
+            // 銀色細鍊
+            const chainGeo = new THREE.TorusGeometry(0.38, 0.015, 8, 24);
+            chainGeo.rotateX(Math.PI / 2.2);
+            const chainMesh = new THREE.Mesh(chainGeo, this.matSilverNecklace);
+            necklaceGroup.add(chainMesh);
+
+            // 銀色小肉爪吊墜 (Pendant)
+            const pendantGroup = new THREE.Group();
+            pendantGroup.position.set(0, -0.16, 0.38);
+
+            // 肉爪主肉墊
+            const mainPad = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.012, 16), this.matSilverNecklace);
+            mainPad.rotateX(Math.PI / 2);
+            pendantGroup.add(mainPad);
+
+            // 4 顆小腳趾肉墊
+            const toeOffsets = [
+                [-0.038, 0.042],
+                [-0.013, 0.055],
+                [0.013, 0.055],
+                [0.038, 0.042]
+            ];
+            toeOffsets.forEach(([tx, ty]) => {
+                const toe = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.012, 10), this.matSilverNecklace);
+                toe.rotateX(Math.PI / 2);
+                toe.position.set(tx, ty, 0);
+                pendantGroup.add(toe);
+            });
+
+            necklaceGroup.add(pendantGroup);
+            necklaceGroup.position.set(0, 0.02, 0.18);
+            this.neck.add(necklaceGroup);
+        }
+
+        // 3. 立耳系統 (Dog / Cat / Fox 各具特色)
+        this.earLeftPivot = new THREE.Group();
+        this.earLeftPivot.position.set(-0.28, 0.62, 0.1);
+        this.head.add(this.earLeftPivot);
+
+        this.earRightPivot = new THREE.Group();
+        this.earRightPivot.position.set(0.28, 0.62, 0.1);
+        this.head.add(this.earRightPivot);
+
+        if (this.petType === 'cat') {
+            // 🐱 緬因貓耳朵：寬底大立耳 + 誇張精靈耳尖簇毛 + 奶白內毛 (Maine Coon 最標誌外形)
+            const earGeo = new THREE.ConeGeometry(0.22, 0.58, 5);
+            earGeo.scale(1.1, 1.0, 0.4);
+
+            const earL = new THREE.Mesh(earGeo, mainCoat);
+            earL.position.set(0, 0.25, 0);
+            earL.rotation.z = -0.1;
+            earL.userData = { part: 'ear-left' };
+            this.earLeftPivot.add(earL);
+
+            // 奶白內耳毛
+            const inL = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.44, 5), this.matCatFluffInner);
+            inL.position.set(0.02, 0.23, 0.06);
+            inL.rotation.z = -0.08;
+            this.earLeftPivot.add(inL);
+
+            // 耳尖超長精靈簇毛 (Lynx Tip - Maine Coon 最招牌特徵)
+            const tuftGeo = new THREE.ConeGeometry(0.04, 0.32, 4);
+            const tuftL = new THREE.Mesh(tuftGeo, this.matCatEarTuft);
+            tuftL.position.set(-0.02, 0.55, 0.02);
+            tuftL.rotation.z = -0.2;
+            this.earLeftPivot.add(tuftL);
+            // 雙股簇毛
+            const tuftL2 = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.25, 4), this.matCatEarTuft);
+            tuftL2.position.set(0.03, 0.52, 0.02);
+            tuftL2.rotation.z = 0.1;
+            this.earLeftPivot.add(tuftL2);
+
+            const earR = new THREE.Mesh(earGeo, mainCoat);
+            earR.position.set(0, 0.25, 0);
+            earR.rotation.z = 0.1;
+            earR.scale.x = -1;
+            earR.userData = { part: 'ear-right' };
+            this.earRightPivot.add(earR);
+
+            const inR = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.44, 5), this.matCatFluffInner);
+            inR.position.set(-0.02, 0.23, 0.06);
+            inR.rotation.z = 0.08;
+            this.earRightPivot.add(inR);
+
+            const tuftR = new THREE.Mesh(tuftGeo, this.matCatEarTuft);
+            tuftR.position.set(0.02, 0.55, 0.02);
+            tuftR.rotation.z = 0.2;
+            this.earRightPivot.add(tuftR);
+            const tuftR2 = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.25, 4), this.matCatEarTuft);
+            tuftR2.position.set(-0.03, 0.52, 0.02);
+            tuftR2.rotation.z = -0.1;
+            this.earRightPivot.add(tuftR2);
+
+        } else if (this.petType === 'fox') {
+            // 🦊 狐狸耳朵：大而高聳的尖立耳 (耳背深色、內襯雪白軟毛，參考圖 2 & 4)
+            const earGeo = new THREE.ConeGeometry(0.22, 0.62, 4);
+            earGeo.scale(1.0, 1.0, 0.36);
+            earGeo.rotateZ(0.12);
+
+            const earL = new THREE.Mesh(earGeo, mainCoat);
+            earL.position.set(0, 0.26, 0);
+            earL.userData = { part: 'ear-left' };
+            this.earLeftPivot.add(earL);
+
+            const earBackL = new THREE.Mesh(new THREE.ConeGeometry(0.19, 0.58, 4), this.matFoxEarBack);
+            earBackL.position.set(0, 0.26, -0.02);
+            this.earLeftPivot.add(earBackL);
+
+            const inL = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.46, 4), this.matFoxWhite);
+            inL.position.set(0.01, 0.24, 0.06);
+            this.earLeftPivot.add(inL);
+
+            const earR = new THREE.Mesh(earGeo, mainCoat);
+            earR.position.set(0, 0.26, 0);
+            earR.scale.x = -1;
+            earR.userData = { part: 'ear-right' };
+            this.earRightPivot.add(earR);
+
+            const earBackR = new THREE.Mesh(new THREE.ConeGeometry(0.19, 0.58, 4), this.matFoxEarBack);
+            earBackR.position.set(0, 0.26, -0.02);
+            this.earRightPivot.add(earBackR);
+
+            const inR = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.46, 4), this.matFoxWhite);
+            inR.position.set(-0.01, 0.24, 0.06);
+            this.earRightPivot.add(inR);
+
+        } else {
+            // 🐕‍🦺 黑狗立耳
+            const earGeo = new THREE.ConeGeometry(0.2, 0.55, 4);
+            earGeo.scale(1.0, 1.0, 0.4);
+            earGeo.rotateZ(0.12);
+            earGeo.rotateX(-0.1);
+
+            const earL = new THREE.Mesh(earGeo, this.matBlackCoat);
+            earL.position.set(0, 0.24, 0);
+            earL.userData = { part: 'ear-left' };
+            this.earLeftPivot.add(earL);
+
+            const inL = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.42, 4), this.matInnerEar);
+            inL.position.set(0.01, 0.22, 0.06);
+            this.earLeftPivot.add(inL);
+
+            const earR = new THREE.Mesh(earGeo, this.matBlackCoat);
+            earR.position.set(0, 0.24, 0);
+            earR.scale.x = -1;
+            earR.userData = { part: 'ear-right' };
+            this.earRightPivot.add(earR);
+
+            const inR = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.42, 4), this.matInnerEar);
+            inR.position.set(-0.01, 0.22, 0.06);
+            this.earRightPivot.add(inR);
+        }
+
+        // 4. 立體流線吻部、鼻子與微笑下顎 (Organic 3D Streamlined Snout & Nose)
+        this.snout = new THREE.Group();
+        // 緬因貓的鼻口位置稍低（配合大而圓的頭型）
+        this.snout.position.set(0, 0.15, (this.petType === 'cat') ? 0.46 : 0.42);
+        this.head.add(this.snout);
+
+        if (this.petType === 'fox') {
+            // 🦊 狐狸立體尖吻部 (告別平截面！流線漸尖至鼻頭，搭配雪白下顎與微笑嘴角)
+            const snoutMat = (this.colorVariant === 'white') ? this.matFoxCoat : this.matFoxWhite;
+
+            // 上吻部 (鼻樑流線錐體)
+            const upperSnoutGeo = new THREE.ConeGeometry(0.18, 0.38, 16);
+            upperSnoutGeo.rotateX(Math.PI / 2);
+            upperSnoutGeo.scale(0.9, 0.72, 1.0);
+            const upperSnout = new THREE.Mesh(upperSnoutGeo, snoutMat);
+            upperSnout.position.set(0, 0.02, 0.16);
+            upperSnout.castShadow = true;
+            upperSnout.userData = { part: 'chin' };
+            this.snout.add(upperSnout);
+
+            // 狐狸鼻樑上方毛色飾條 (赤狐/銀狐鼻樑帶原色，側面與下巴純白)
+            if (this.colorVariant !== 'white') {
+                const bridgeGeo = new THREE.ConeGeometry(0.1, 0.32, 12);
+                bridgeGeo.rotateX(Math.PI / 2);
+                bridgeGeo.scale(0.8, 0.4, 1.0);
+                const bridgeMesh = new THREE.Mesh(bridgeGeo, mainCoat);
+                bridgeMesh.position.set(0, 0.065, 0.14);
+                this.snout.add(bridgeMesh);
+            }
+
+            // 下顎 (微微內縮，形成立體下巴與微笑弧度)
+            const chinGeo = new THREE.SphereGeometry(0.13, 12, 12);
+            chinGeo.scale(0.85, 0.55, 1.25);
+            const chinMesh = new THREE.Mesh(chinGeo, snoutMat);
+            chinMesh.position.set(0, -0.04, 0.12);
+            chinMesh.userData = { part: 'chin' };
+            this.snout.add(chinMesh);
+
+            // 狐狸小巧立體黑鼻頭 (自然坐落在尖吻前端)
+            const noseMesh = new THREE.Mesh(new THREE.SphereGeometry(0.048, 12, 12), this.matNose);
+            noseMesh.scale.set(1.2, 0.9, 1.1);
+            noseMesh.position.set(0, 0.03, 0.35);
+            this.snout.add(noseMesh);
+
+        } else if (this.petType === 'cat') {
+            // 🐱 緬因貓方形口吻 (Maine Coon 特徵：寬方下顎 + 大而立體的胡鬚墊 + 粉鼻頭)
+            // 方形主吻部底座
+            const muzzleBaseGeo = new THREE.BoxGeometry(0.28, 0.18, 0.18);
+            const muzzleBase = new THREE.Mesh(muzzleBaseGeo, this.matCatMuzzle);
+            muzzleBase.position.set(0, -0.02, 0.07);
+            muzzleBase.userData = { part: 'chin' };
+            this.snout.add(muzzleBase);
+
+            // 左右大圓胡鬚墊（立體圓滾滾）
+            const padGeo = new THREE.SphereGeometry(0.12, 14, 14);
+            padGeo.scale(0.95, 0.78, 0.88);
+            const padL = new THREE.Mesh(padGeo, this.matCatMuzzle);
+            padL.position.set(-0.1, 0.0, 0.1);
+            const padR = new THREE.Mesh(padGeo, this.matCatMuzzle);
+            padR.position.set(0.1, 0.0, 0.1);
+            padL.userData = { part: 'chin' };
+            padR.userData = { part: 'chin' };
+            this.snout.add(padL, padR);
+
+            // 小下巴（下方奶白色）
+            const chinMesh = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 10), this.matCatFluff);
+            chinMesh.scale.set(0.95, 0.6, 0.85);
+            chinMesh.position.set(0, -0.08, 0.08);
+            chinMesh.userData = { part: 'chin' };
+            this.snout.add(chinMesh);
+
+            // 粉嫩三角形倒三角鼻頭（Maine Coon 大鼻頭）
+            const noseMesh = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 12), this.matCatNose);
+            noseMesh.scale.set(1.3, 0.8, 1.0);
+            noseMesh.position.set(0, 0.06, 0.17);
+            this.snout.add(noseMesh);
+
+            // 鼻樑突起（增加立體感）
+            const bridgeGeo = new THREE.SphereGeometry(0.06, 10, 10);
+            bridgeGeo.scale(0.7, 0.5, 1.2);
+            const bridge = new THREE.Mesh(bridgeGeo, mainCoat);
+            bridge.position.set(0, 0.1, 0.05);
+            this.snout.add(bridge);
+
+        } else {
+            // 🐕‍🦺 黑狗立體幼犬吻部 (立體圓錐流線，告別平頭圓柱)
+            const snoutGeo = new THREE.ConeGeometry(0.2, 0.34, 16);
+            snoutGeo.rotateX(Math.PI / 2);
+            snoutGeo.scale(1.0, 0.85, 1.0);
+            const snoutMesh = new THREE.Mesh(snoutGeo, this.matBlackCoat);
+            snoutMesh.position.set(0, 0.01, 0.14);
+            snoutMesh.castShadow = true;
+            snoutMesh.userData = { part: 'chin' };
+            this.snout.add(snoutMesh);
+
+            // 下顎
+            const chinGeo = new THREE.SphereGeometry(0.14, 12, 12);
+            chinGeo.scale(0.9, 0.6, 1.15);
+            const chinMesh = new THREE.Mesh(chinGeo, this.matBlackCoat);
+            chinMesh.position.set(0, -0.05, 0.11);
+            chinMesh.userData = { part: 'chin' };
+            this.snout.add(chinMesh);
+
+            // 黑豆濕潤鼻頭
+            const noseMesh = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 12), this.matNose);
+            noseMesh.scale.set(1.25, 0.9, 1.1);
+            noseMesh.position.set(0, 0.035, 0.31);
+            this.snout.add(noseMesh);
+        }
+
+        // 舌頭 (Tongue)
+        const tongueGeo = new THREE.BoxGeometry(0.08, 0.02, 0.16);
+        tongueGeo.translate(0, 0, 0.08);
+        this.tongue = new THREE.Mesh(tongueGeo, this.matTongue);
+        this.tongue.position.set(0, -0.06, 0.1);
+        this.tongue.rotation.x = 0.25;
+        this.tongue.visible = false;
+        this.snout.add(this.tongue);
+
+        // 5. 靈動大眼睛 (Eyes with Catchlights)
+        this.eyesGroup = new THREE.Group();
+        this.head.add(this.eyesGroup);
+
+        // 緬因貓：稍大的杏仁眼，帶輕微傾斜（斜眼貓咪特徵）
+        const eyeRadius = (this.petType === 'cat') ? 0.14 : 0.12;
+        const eyeGeo = new THREE.SphereGeometry(eyeRadius, 14, 14);
+        if (this.petType === 'cat') eyeGeo.scale(1.1, 0.85, 1.0); // 杏仁眼形狀
+        const pupilGeo = new THREE.SphereGeometry(0.075, 10, 10);
+        if (this.petType === 'cat') pupilGeo.scale(0.65, 1.2, 1.0); // 貓咪大萌瞳孔（縱向橢圓）
+
+        const shine1Geo = new THREE.SphereGeometry(0.045, 8, 8);
+        const shine2Geo = new THREE.SphereGeometry(0.022, 8, 8);
+
+        // 緬因貓眼睛位置：稍寬分開，略帶外側傾斜（Maine Coon 迷人大眼）
+        const eyeOffX = (this.petType === 'cat') ? 0.23 : 0.2;
+        const eyeOffY = (this.petType === 'cat') ? 0.35 : 0.32;
+        const eyeOffZ = (this.petType === 'cat') ? 0.46 : 0.45;
+
+        // 左眼
+        this.eyeLeft = new THREE.Group();
+        this.eyeLeft.position.set(-eyeOffX, eyeOffY, eyeOffZ);
+        if (this.petType === 'cat') this.eyeLeft.rotation.z = 0.22; // 杏仁傾斜
+        const irisL = new THREE.Mesh(eyeGeo, eyeMat);
+        const pupilL = new THREE.Mesh(pupilGeo, this.matPupil);
+        pupilL.position.set(0, 0, 0.07);
+        const shine1L = new THREE.Mesh(shine1Geo, this.matShine);
+        shine1L.position.set(-0.04, 0.05, 0.11);
+        const shine2L = new THREE.Mesh(shine2Geo, this.matShine);
+        shine2L.position.set(0.03, -0.03, 0.11);
+        this.eyeLeft.add(irisL, pupilL, shine1L, shine2L);
+        this.eyesGroup.add(this.eyeLeft);
+
+        // 右眼
+        this.eyeRight = new THREE.Group();
+        this.eyeRight.position.set(eyeOffX, eyeOffY, eyeOffZ);
+        if (this.petType === 'cat') this.eyeRight.rotation.z = -0.22; // 杏仁傾斜
+        const irisR = new THREE.Mesh(eyeGeo, eyeMat);
+        const pupilR = new THREE.Mesh(pupilGeo, this.matPupil);
+        pupilR.position.set(0, 0, 0.07);
+        const shine1R = new THREE.Mesh(shine1Geo, this.matShine);
+        shine1R.position.set(-0.04, 0.05, 0.11);
+        const shine2R = new THREE.Mesh(shine2Geo, this.matShine);
+        shine2R.position.set(0.03, -0.03, 0.11);
+        this.eyeRight.add(irisR, pupilR, shine1R, shine2R);
+        this.eyesGroup.add(this.eyeRight);
+
+        // 6. 四肢
+        this.legs = {};
+        const legRadius = 0.09;
+        const legHeight = (this.petType === 'cat') ? 0.38 : 0.42;
+        const legGeo = new THREE.CylinderGeometry(legRadius * 0.9, legRadius, legHeight, 10);
+        const pawGeo = new THREE.SphereGeometry(0.12, 10, 10);
+        pawGeo.scale(1.0, 0.55, 1.25);
+
+        const legMat = (this.petType === 'fox') ? this.matFoxPaw : mainCoat;
+
+        const createLeg = (name, x, y, z) => {
+            const pivot = new THREE.Group();
+            pivot.position.set(x, y, z);
+            const limb = new THREE.Mesh(legGeo, legMat);
+            limb.position.set(0, -legHeight / 2, 0);
+            limb.castShadow = true;
+            pivot.add(limb);
+
+            const paw = new THREE.Mesh(pawGeo, legMat);
+            paw.position.set(0, -legHeight, 0.05);
+            paw.castShadow = true;
+            pivot.add(paw);
+
+            this.body.add(pivot);
+            return pivot;
+        };
+
+        this.legs.frontLeft = createLeg('frontLeft', -0.24, -0.16, 0.28);
+        this.legs.frontRight = createLeg('frontRight', 0.24, -0.16, 0.28);
+        this.legs.backLeft = createLeg('backLeft', -0.25, -0.16, -0.32);
+        this.legs.backRight = createLeg('backRight', 0.25, -0.16, -0.32);
+
+        // 7. 尾巴 (Fox 巨大白尖蓬尾 / Cat 蓬鬆羽尾 / Dog 尖翹尾)
+        this.tailBase = new THREE.Group();
+        this.tailBase.position.set(0, 0.16, -0.5);
+        this.tailBase.rotation.x = (this.petType === 'cat') ? 1.1 : 0.7;
+        this.body.add(this.tailBase);
+
+        if (this.petType === 'cat') {
+            // 🐱 緬因貓超蓬鬆羽毛尾巴 (Maine Coon 粗大蓬鬆尾是招牌！)
+            const tailSeg0Geo = new THREE.CylinderGeometry(0.1, 0.14, 0.28, 10);
+            tailSeg0Geo.translate(0, 0.14, 0);
+            this.tail0 = new THREE.Mesh(tailSeg0Geo, mainCoat);
+            this.tailBase.add(this.tail0);
+
+            // 尾巴中段（加粗，模擬蓬鬆感）
+            const tailSeg1Geo = new THREE.CylinderGeometry(0.12, 0.13, 0.3, 10);
+            tailSeg1Geo.translate(0, 0.15, 0);
+            this.tail1 = new THREE.Mesh(tailSeg1Geo, mainCoat);
+            this.tail1.position.set(0, 0.26, 0);
+            this.tail1.rotation.x = -0.45;
+            this.tail0.add(this.tail1);
+
+            // 尾巴上段（再往上彎）
+            const tailSeg2Geo = new THREE.CylinderGeometry(0.09, 0.12, 0.28, 10);
+            tailSeg2Geo.translate(0, 0.14, 0);
+            this.tail2 = new THREE.Mesh(tailSeg2Geo, mainCoat);
+            this.tail2.position.set(0, 0.28, 0);
+            this.tail2.rotation.x = -0.5;
+            this.tail1.add(this.tail2);
+
+            // 尾尖蓬鬆球（奶白色）
+            const tailTipGeo = new THREE.SphereGeometry(0.14, 12, 12);
+            const tailTip = new THREE.Mesh(tailTipGeo, this.matCatFluff);
+            tailTip.scale.set(1.0, 1.3, 1.0);
+            tailTip.position.set(0, 0.26, 0);
+            this.tail2.add(tailTip);
+
+        } else if (this.petType === 'fox') {
+            // 🦊 狐狸超大蓬尾 (參考圖 2 & 4：厚實大尾巴 + 標誌性純白尾尖)
+            const foxTail0Geo = new THREE.SphereGeometry(0.22, 14, 14);
+            foxTail0Geo.scale(1.0, 1.8, 1.0);
+            this.tail0 = new THREE.Mesh(foxTail0Geo, mainCoat);
+            this.tail0.position.set(0, 0.28, 0);
+            this.tailBase.add(this.tail0);
+
+            // 純白尾尖 (White Tip)
+            const foxTailTipGeo = new THREE.ConeGeometry(0.2, 0.42, 12);
+            foxTailTipGeo.translate(0, 0.22, 0);
+            this.tail1 = new THREE.Mesh(foxTailTipGeo, (this.colorVariant === 'white') ? this.matFoxCoat : this.matFoxWhite);
+            this.tail1.position.set(0, 0.28, 0);
+            this.tail0.add(this.tail1);
+            this.tail2 = this.tail1;
+
+        } else {
+            // 🐕‍🦺 黑狗小尾巴
+            const tailSegGeo = new THREE.CylinderGeometry(0.045, 0.07, 0.18, 8);
+            tailSegGeo.translate(0, 0.09, 0);
+
+            this.tail0 = new THREE.Mesh(tailSegGeo, this.matBlackCoat);
+            this.tailBase.add(this.tail0);
+
+            this.tail1 = new THREE.Mesh(tailSegGeo, this.matBlackCoat);
+            this.tail1.position.set(0, 0.16, 0);
+            this.tail1.rotation.x = 0.35;
+            this.tail0.add(this.tail1);
+
+            this.tail2 = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.16, 8), this.matBlackCoat);
+            this.tail2.position.set(0, 0.16, 0);
+            this.tail2.rotation.x = 0.35;
+            this.tail1.add(this.tail2);
+        }
+    }
+
+    setGrowthScale(scale) {
+        this.growthScale = scale;
+        this.group.scale.set(scale, scale, scale);
+    }
+
+    buildAccessories() {
+        // 1. 經典紅色項圈與金牌
+        const collarGroup = new THREE.Group();
+        const collarGeo = new THREE.TorusGeometry(0.35, 0.04, 8, 24);
+        collarGeo.rotateX(Math.PI / 2);
+        const matCollar = new THREE.MeshStandardMaterial({ color: 0xee5253, roughness: 0.3 });
+        const collarMesh = new THREE.Mesh(collarGeo, matCollar);
+        collarGroup.add(collarMesh);
+
+        const tagGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.02, 16);
+        tagGeo.rotateX(Math.PI / 2);
+        const matGold = new THREE.MeshStandardMaterial({ color: 0xf1c40f, metalness: 0.8, roughness: 0.2 });
+        const tagMesh = new THREE.Mesh(tagGeo, matGold);
+        tagMesh.position.set(0, -0.12, 0.35);
+        collarGroup.add(tagMesh);
+
+        collarGroup.position.set(0, 0.04, 0.24);
+        this.neck.add(collarGroup);
+        this.accessories.red_collar = collarGroup;
+
+        // 2. 金色大鈴鐺項圈
+        const bellGroup = new THREE.Group();
+        const blueCollar = new THREE.Mesh(collarGeo, new THREE.MeshStandardMaterial({ color: 0x3498db }));
+        bellGroup.add(blueCollar);
+        const bellMesh = new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 14), matGold);
+        bellMesh.position.set(0, -0.14, 0.35);
+        bellGroup.add(bellMesh);
+        bellGroup.position.set(0, 0.04, 0.24);
+        bellGroup.visible = false;
+        this.neck.add(bellGroup);
+        this.accessories.gold_bell = bellGroup;
+
+        // 3. 萌萌紅領巾
+        const bandanaGroup = new THREE.Group();
+        const bandanaGeo = new THREE.ConeGeometry(0.26, 0.32, 3);
+        bandanaGeo.rotateX(Math.PI);
+        const matBandana = new THREE.MeshStandardMaterial({ color: 0xe74c3c, roughness: 0.5 });
+        const bandanaMesh = new THREE.Mesh(bandanaGeo, matBandana);
+        bandanaMesh.position.set(0, -0.08, 0.32);
+        bandanaMesh.scale.set(1.1, 0.8, 0.3);
+        bandanaGroup.add(bandanaMesh);
+        bandanaGroup.position.set(0, 0.04, 0.24);
+        bandanaGroup.visible = false;
+        this.neck.add(bandanaGroup);
+        this.accessories.bandana = bandanaGroup;
+
+        // 4. 墨鏡
+        const glassesGroup = new THREE.Group();
+        const matGlassFrame = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.5, roughness: 0.2 });
+        const matLens = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.05, metalness: 0.9 });
+        
+        const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.03), matLens);
+        frameL.position.set(-0.2, 0.32, 0.52);
+        const frameR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.03), matLens);
+        frameR.position.set(0.2, 0.32, 0.52);
+        const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.025, 0.025), matGlassFrame);
+        bridge.position.set(0, 0.34, 0.52);
+        glassesGroup.add(frameL, frameR, bridge);
+        glassesGroup.visible = false;
+        this.head.add(glassesGroup);
+        this.accessories.sunglasses = glassesGroup;
+
+        // 5. 魔法帽
+        const hatGroup = new THREE.Group();
+        const matPurple = new THREE.MeshStandardMaterial({ color: 0x6c5ce7, roughness: 0.4 });
+        const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.03, 20), matPurple);
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.7, 16), matPurple);
+        cone.position.set(0, 0.35, 0);
+        cone.rotation.x = -0.15;
+        hatGroup.add(brim, cone);
+        hatGroup.position.set(0, 0.7, 0.08);
+        hatGroup.rotation.x = -0.2;
+        hatGroup.visible = false;
+        this.head.add(hatGroup);
+        this.accessories.wizard_hat = hatGroup;
+
+        // 6. 派對帽
+        const partyGroup = new THREE.Group();
+        const partyCone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.5, 16), new THREE.MeshStandardMaterial({ color: 0xff7675 }));
+        partyCone.position.set(0, 0.25, 0);
+        const pompom = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), new THREE.MeshStandardMaterial({ color: 0xffeaa7 }));
+        pompom.position.set(0, 0.52, 0);
+        partyGroup.add(partyCone, pompom);
+        partyGroup.position.set(0, 0.7, 0.08);
+        partyGroup.visible = false;
+        this.head.add(partyGroup);
+        this.accessories.party_hat = partyGroup;
+
+        // 7. 英雄披風
+        const capeGroup = new THREE.Group();
+        const capeGeo = new THREE.PlaneGeometry(0.65, 0.9, 8, 8);
+        capeGeo.rotateX(Math.PI / 3);
+        const matCape = new THREE.MeshStandardMaterial({ color: 0xd63031, side: THREE.DoubleSide, roughness: 0.4 });
+        this.capeMesh = new THREE.Mesh(capeGeo, matCape);
+        this.capeMesh.position.set(0, 0.08, -0.45);
+        capeGroup.add(this.capeMesh);
+        capeGroup.visible = false;
+        this.body.add(capeGroup);
+        this.accessories.hero_cape = capeGroup;
+    }
+
+    twitchEars(side = 'both') {
+        if (side === 'left' || side === 'both') {
+            this.earVelocityL = 22;
+        }
+        if (side === 'right' || side === 'both') {
+            this.earVelocityR = -22;
+        }
+    }
+
+    setState(state) {
+        this.currentState = state;
+        this.tongue.visible = (state === 'happy' || state === 'eat');
+
+        if (state === 'happy') {
+            this.twitchEars('both');
+        } else if (state === 'sit') {
+            this.twitchEars('left');
+        } else if (state === 'paw') {
+            this.twitchEars('right');
+        }
+    }
+
+    updateAccessories(equippedMap) {
+        if (equippedMap) this.equipped = equippedMap;
+
+        Object.keys(this.accessories).forEach(key => {
+            this.accessories[key].visible = false;
+        });
+
+        if (this.equipped.collar && this.accessories[this.equipped.collar]) {
+            this.accessories[this.equipped.collar].visible = true;
+        }
+        if (this.equipped.glasses && this.accessories[this.equipped.glasses]) {
+            this.accessories[this.equipped.glasses].visible = true;
+        }
+        if (this.equipped.hat && this.accessories[this.equipped.hat]) {
+            this.accessories[this.equipped.hat].visible = true;
+        }
+        if (this.equipped.cape && this.accessories[this.equipped.cape]) {
+            this.accessories[this.equipped.cape].visible = true;
+        }
+    }
+
+    update(delta, elapsedTime) {
+        const spring = 85;
+        const damping = 7;
+
+        this.earVelocityL += (-this.earTwitchL * spring - this.earVelocityL * damping) * delta;
+        this.earTwitchL += this.earVelocityL * delta;
+        this.earLeftPivot.rotation.z = THREE.MathUtils.degToRad(this.earTwitchL);
+
+        this.earVelocityR += (-this.earTwitchR * spring - this.earVelocityR * damping) * delta;
+        this.earTwitchR += this.earVelocityR * delta;
+        this.earRightPivot.rotation.z = THREE.MathUtils.degToRad(this.earTwitchR);
+
+        // 眨眼
+        this.nextBlinkTime -= delta;
+        if (this.nextBlinkTime <= 0) {
+            this.isBlinking = true;
+            this.blinkProgress = 0;
+            this.nextBlinkTime = 2.0 + Math.random() * 3.0;
+        }
+
+        if (this.isBlinking) {
+            this.blinkProgress += delta * 12;
+            const eyeScaleY = Math.max(0.1, Math.abs(Math.sin(this.blinkProgress)));
+            this.eyeLeft.scale.y = eyeScaleY;
+            this.eyeRight.scale.y = eyeScaleY;
+
+            if (this.blinkProgress >= Math.PI) {
+                this.isBlinking = false;
+                this.eyeLeft.scale.y = 1;
+                this.eyeRight.scale.y = 1;
+            }
+        }
+
+        // 尾巴流暢擺動
+        let wagSpeed = (this.petType === 'cat') ? 4 : 8;
+        let wagAmp = (this.petType === 'fox') ? 0.4 : 0.45;
+
+        if (this.currentState === 'happy' || this.currentState === 'pet') {
+            wagSpeed = (this.petType === 'cat') ? 10 : 22;
+            wagAmp = 0.75;
+        } else if (this.currentState === 'sleep') {
+            wagSpeed = 0;
+            wagAmp = 0;
+        }
+
+        const tailWave = Math.sin(elapsedTime * wagSpeed) * wagAmp;
+        this.tailBase.rotation.y = tailWave;
+        if (this.tail1) this.tail1.rotation.y = tailWave * 0.8;
+
+        if (this.capeMesh && this.accessories.hero_cape && this.accessories.hero_cape.visible) {
+            this.capeMesh.rotation.x = Math.PI / 3 + Math.sin(elapsedTime * 8) * 0.15;
+        }
+
+        const t = elapsedTime;
+
+        switch (this.currentState) {
+            case 'idle':
+                this.body.position.y = 0.65 + Math.sin(t * 3.0) * 0.02;
+                this.head.rotation.x = Math.sin(t * 2.0) * 0.05;
+                this.head.rotation.y = Math.sin(t * 1.2) * 0.08;
+                this.head.rotation.z = Math.sin(t * 1.5) * 0.04;
+                this.root.rotation.set(0, 0, 0);
+                this.resetLegs();
+                break;
+
+            case 'happy':
+                const hop = Math.abs(Math.sin(t * 9));
+                this.body.position.y = 0.65 + hop * 0.28;
+                this.head.rotation.x = -0.2 + hop * 0.18;
+                this.legs.frontLeft.rotation.x = hop * 0.35;
+                this.legs.frontRight.rotation.x = hop * 0.35;
+                this.legs.backLeft.rotation.x = -hop * 0.25;
+                this.legs.backRight.rotation.x = -hop * 0.25;
+                break;
+
+            case 'pet':
+                this.body.position.y = 0.62;
+                this.head.rotation.x = -0.25 + Math.sin(t * 3.5) * 0.04;
+                this.head.rotation.z = 0.12;
+                this.eyeLeft.scale.y = 0.18;
+                this.eyeRight.scale.y = 0.18;
+                break;
+
+            case 'sit':
+                this.body.position.y = 0.5;
+                this.body.rotation.x = -0.28;
+                this.head.rotation.x = 0.25;
+                this.legs.backLeft.rotation.x = 1.1;
+                this.legs.backRight.rotation.x = 1.1;
+                this.legs.frontLeft.rotation.x = 0.25;
+                this.legs.frontRight.rotation.x = 0.25;
+                break;
+
+            case 'paw':
+                this.body.position.y = 0.5;
+                this.body.rotation.x = -0.22;
+                this.head.rotation.x = 0.22;
+                this.legs.frontRight.rotation.x = -1.25;
+                this.legs.frontRight.rotation.z = -0.25;
+                this.legs.frontLeft.rotation.x = 0.22;
+                this.legs.backLeft.rotation.x = 1.0;
+                this.legs.backRight.rotation.x = 1.0;
+                break;
+
+            case 'rollover':
+                this.body.position.y = 0.3;
+                this.root.rotation.z = Math.sin(t * 4.5) * 0.35 + Math.PI;
+                this.legs.frontLeft.rotation.x = 0.7;
+                this.legs.frontRight.rotation.x = 0.7;
+                this.legs.backLeft.rotation.x = 0.7;
+                this.legs.backRight.rotation.x = 0.7;
+                break;
+
+            case 'eat':
+                this.body.position.y = 0.58;
+                this.body.rotation.x = 0.22;
+                this.neck.rotation.x = 0.32 + Math.sin(t * 14) * 0.07;
+                this.resetLegs();
+                break;
+
+            case 'sleep':
+                this.body.position.y = 0.3;
+                this.body.rotation.z = 1.35;
+                this.head.rotation.y = 0.25;
+                this.eyeLeft.scale.y = 0.1;
+                this.eyeRight.scale.y = 0.1;
+                this.legs.frontLeft.rotation.z = 0.45;
+                this.legs.frontRight.rotation.z = 0.45;
+                this.legs.backLeft.rotation.z = 0.45;
+                this.legs.backRight.rotation.z = 0.45;
+                break;
+        }
+    }
+
+    resetLegs() {
+        this.legs.frontLeft.rotation.set(0, 0, 0);
+        this.legs.frontRight.rotation.set(0, 0, 0);
+        this.legs.backLeft.rotation.set(0, 0, 0);
+        this.legs.backRight.rotation.set(0, 0, 0);
+        this.body.rotation.set(0, 0, 0);
+    }
+}
