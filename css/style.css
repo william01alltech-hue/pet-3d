@@ -65,14 +65,6 @@ body {
     border-radius: 24px;
 }
 
-@media (max-width: 768px) {
-    #game-app {
-        border-radius: 0;
-        max-height: 100vh;
-        max-width: 100vw;
-    }
-}
-
 .glass-panel {
     background: var(--glass-bg);
     backdrop-filter: blur(16px);
@@ -1695,6 +1687,11 @@ body.theme-night .achieve-item {
     color: white;
 }
 
+/* 預設（電腦與大螢幕）：隱藏手機版單行控制列，保持經典三層佈局 */
+.mobile-collapsed-bar {
+    display: none !important;
+}
+
 /* ==========================================================================
    📱 響應式裝置極致體驗優化：手機 (Mobile) / 平板 (Tablet) / 電腦 (Desktop)
    ========================================================================== */
@@ -1731,27 +1728,181 @@ body.theme-night .achieve-item {
     }
 }
 
-/* 2. 手機螢幕極致體驗優化 (iPhone, Android Phones: max-width: 640px) */
-@media (max-width: 640px) {
+/* 2. 手機版極致單行收折與全螢幕 3D 主視窗 (max-width: 768px) */
+@media (max-width: 768px) {
     #game-app {
         width: 100vw;
+        height: 100vh;
         height: 100dvh;
         max-width: 100vw;
         max-height: 100dvh;
         border-radius: 0;
-        padding-top: env(safe-area-inset-top, 0px);
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-        padding-left: env(safe-area-inset-left, 0px);
-        padding-right: env(safe-area-inset-right, 0px);
+        position: relative;
+        overflow: hidden;
+        padding: 0;
     }
 
-    /* 頂部導覽列：雙層靈巧排版，大字清晰、按鈕好點不擠壓 */
+    /* 🌟 第三張圖主要視窗：佔滿 100% 全螢幕手機視野！ */
+    .viewport-stage {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        overflow: hidden;
+    }
+
+    #webgl-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* 🌟 手機專屬精簡單行控制列（三大功能收折在同一行・高度僅 50px） */
+    .mobile-collapsed-bar {
+        display: flex !important;
+        align-items: center;
+        justify-content: space-between;
+        position: absolute;
+        bottom: max(10px, env(safe-area-inset-bottom, 10px));
+        left: 10px;
+        right: 10px;
+        height: 50px;
+        padding: 4px 6px;
+        z-index: 40;
+        gap: 6px;
+        border-radius: 20px;
+        background: rgba(15, 23, 42, 0.88);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.20);
+        box-shadow: 0 10px 35px rgba(0, 0, 0, 0.50);
+    }
+
+    .mobile-bar-btn {
+        flex: 1;
+        height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        background: rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 14px;
+        color: #f8fafc;
+        padding: 0 6px;
+        cursor: pointer;
+        transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        min-width: 0;
+    }
+
+    .mobile-bar-btn:active {
+        transform: scale(0.94);
+        background: rgba(255, 255, 255, 0.22);
+    }
+
+    .mobile-bar-btn.active {
+        background: linear-gradient(135deg, rgba(254, 202, 87, 0.35), rgba(255, 159, 67, 0.40));
+        border-color: #feca57;
+        box-shadow: 0 0 14px rgba(254, 202, 87, 0.45);
+    }
+
+    .mobile-bar-btn.active .m-arrow {
+        transform: rotate(180deg);
+        color: #feca57;
+    }
+
+    .primary-m-btn {
+        background: linear-gradient(135deg, #ff9f43, #ee5253);
+        border-color: rgba(255, 255, 255, 0.35);
+        box-shadow: 0 4px 15px rgba(238, 82, 83, 0.40);
+        color: white;
+        flex: 1.15;
+    }
+
+    .primary-m-btn.active {
+        background: linear-gradient(135deg, #ee5253, #ff9f43);
+        border-color: #fff;
+        box-shadow: 0 0 16px rgba(255, 159, 67, 0.65);
+    }
+
+    .m-avatar {
+        font-size: 1.25rem;
+        line-height: 1;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+
+    .m-icon {
+        font-size: 1.15rem;
+        line-height: 1;
+    }
+
+    .m-btn-text {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        min-width: 0;
+        overflow: hidden;
+        text-align: left;
+    }
+
+    .m-name {
+        font-size: 0.80rem;
+        font-weight: 800;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.15;
+    }
+
+    .m-sub {
+        font-size: 0.65rem;
+        color: rgba(255, 255, 255, 0.75);
+        font-weight: 600;
+        white-space: nowrap;
+        line-height: 1.1;
+    }
+
+    .m-arrow {
+        font-size: 0.60rem;
+        color: rgba(255, 255, 255, 0.65);
+        transition: transform 0.25s ease;
+        margin-left: auto;
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       三大功能浮層面板（預設收折隱藏，點開單行控制列對應膠囊時滑出）
+       ───────────────────────────────────────────────────────────── */
+
+    /* 功能 1：頂部資訊與成長經驗條 (Top Nav) */
     .top-nav {
-        margin: 4px 8px 0;
-        padding: 8px 10px;
-        gap: 8px 10px;
+        position: absolute;
+        top: max(8px, env(safe-area-inset-top, 8px));
+        left: 10px;
+        right: 10px;
+        z-index: 35;
+        margin: 0;
+        padding: 10px 14px;
+        border-radius: 18px;
+        background: rgba(15, 23, 42, 0.94);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.20);
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.50);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-20px);
+        transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
         flex-wrap: wrap;
-        border-radius: 16px;
+    }
+
+    .top-nav.mobile-open {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
     }
 
     .pet-profile {
@@ -1784,12 +1935,11 @@ body.theme-night .achieve-item {
         padding: 1px 6px;
     }
 
-    /* 經驗值條：手機下滿版寬度置於第二行，視覺平衡清晰 */
     .exp-container {
         order: 3;
         width: 100%;
         max-width: 100%;
-        margin-top: 2px;
+        margin-top: 4px;
         gap: 2px;
     }
 
@@ -1801,7 +1951,6 @@ body.theme-night .achieve-item {
         height: 7px;
     }
 
-    /* 金幣與頂部功能按鈕群：觸控好點，緊湊流暢 */
     .top-actions {
         margin-left: auto;
         gap: 5px;
@@ -1820,27 +1969,32 @@ body.theme-night .achieve-item {
         font-size: 0.95rem;
     }
 
-    /* 3D 視角提示 */
-    .camera-hint-pill {
-        top: 8px;
-        padding: 4px 12px;
-        font-size: 0.72rem;
-        border-radius: 14px;
-    }
-
-    .speech-bubble {
-        top: 8%;
-        max-width: 85%;
-        padding: 8px 14px;
-        font-size: 0.85rem;
-    }
-
-    /* 底部狀態儀表板：四合一微卡片，數據條醒目動態 */
+    /* 功能 2：狀態儀表板 (Stats Card) */
     .stats-card {
-        margin: 0 8px 6px;
-        padding: 6px 8px;
+        position: absolute;
+        bottom: calc(64px + max(8px, env(safe-area-inset-bottom, 8px)));
+        left: 10px;
+        right: 10px;
+        z-index: 35;
+        margin: 0;
+        padding: 10px 12px;
+        border-radius: 18px;
+        background: rgba(15, 23, 42, 0.94);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.20);
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.50);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(20px);
+        transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
         gap: 6px;
-        border-radius: 14px;
+    }
+
+    .stats-card.mobile-open {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
     }
 
     .stat-item {
@@ -1870,12 +2024,32 @@ body.theme-night .achieve-item {
         border-radius: 3px;
     }
 
-    /* 底部主動作欄：拇指友善大觸控區，按壓即時微震與縮放回饋 */
+    /* 功能 3：動作操作列 (Action Dock) */
     .action-dock {
-        margin: 0 8px max(6px, env(safe-area-inset-bottom, 6px));
-        padding: 6px 4px;
-        gap: 3px;
-        border-radius: 16px;
+        position: absolute;
+        bottom: calc(64px + max(8px, env(safe-area-inset-bottom, 8px)));
+        left: 10px;
+        right: 10px;
+        z-index: 35;
+        margin: 0;
+        padding: 8px 6px;
+        border-radius: 18px;
+        background: rgba(15, 23, 42, 0.94);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.20);
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.50);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(20px);
+        transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        gap: 4px;
+    }
+
+    .action-dock.mobile-open {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
     }
 
     .dock-btn {
@@ -1901,7 +2075,52 @@ body.theme-night .achieve-item {
         letter-spacing: -0.2px;
     }
 
-    /* 手機原生彈出視窗（Bottom-Sheet 抽屜式體驗） */
+    /* 3D 視角操作提示與對話泡泡 */
+    .camera-hint-pill {
+        top: 8px;
+        padding: 4px 12px;
+        font-size: 0.72rem;
+        border-radius: 14px;
+    }
+
+    .speech-bubble {
+        top: 8%;
+        max-width: 85%;
+        padding: 8px 14px;
+        font-size: 0.85rem;
+    }
+
+    /* 懸浮抽屜選單（餵食選單） */
+    .floating-drawer {
+        position: absolute;
+        bottom: calc(64px + max(8px, env(safe-area-inset-bottom, 8px)));
+        left: 10px;
+        right: 10px;
+        border-radius: 22px;
+        padding: 16px 12px max(16px, env(safe-area-inset-bottom, 16px));
+        max-height: 70dvh;
+        z-index: 50;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .food-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .food-item-btn {
+        padding: 10px 8px;
+    }
+
+    .food-title {
+        font-size: 0.85rem;
+    }
+
+    .food-boost {
+        font-size: 0.70rem;
+    }
+
+    /* 模態彈出視窗（Bottom-Sheet 抽屜式體驗） */
     .modal-backdrop {
         align-items: flex-end;
     }
@@ -1930,31 +2149,6 @@ body.theme-night .achieve-item {
         width: 44px;
         height: 44px;
         font-size: 1.6rem;
-    }
-
-    /* 懸浮子選單（如餵食選單） */
-    .floating-drawer {
-        border-radius: 22px 22px 0 0;
-        padding: 16px 12px max(16px, env(safe-area-inset-bottom, 16px));
-        max-height: 75dvh;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .food-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-    }
-
-    .food-item-btn {
-        padding: 10px 8px;
-    }
-
-    .food-title {
-        font-size: 0.85rem;
-    }
-
-    .food-boost {
-        font-size: 0.70rem;
     }
 
     .shop-tabs {
@@ -2015,8 +2209,29 @@ body.theme-night .achieve-item {
     }
 }
 
-/* 3. 超小螢幕手機特別調試 (iPhone SE / 螢幕寬度 <= 375px) */
+/* 3. 超小螢幕手機微調 (iPhone SE / 螢幕寬度 <= 375px) */
 @media (max-width: 375px) {
+    .mobile-bar-btn {
+        gap: 3px;
+        padding: 0 4px;
+    }
+
+    .m-avatar {
+        font-size: 1.15rem;
+    }
+
+    .m-icon {
+        font-size: 1.05rem;
+    }
+
+    .m-name {
+        font-size: 0.74rem;
+    }
+
+    .m-sub {
+        font-size: 0.60rem;
+    }
+
     .dock-emoji {
         font-size: 1.15rem;
     }
@@ -2043,6 +2258,16 @@ body.theme-night .achieve-item {
 
 /* 4. 手機橫屏模式 (Landscape Mode: max-height: 520px) */
 @media (max-height: 520px) and (orientation: landscape) {
+    .mobile-collapsed-bar {
+        bottom: max(4px, env(safe-area-inset-bottom, 4px));
+        height: 42px;
+        padding: 2px 6px;
+    }
+
+    .mobile-bar-btn {
+        height: 36px;
+    }
+
     .top-nav {
         margin: 2px 8px 0;
         padding: 4px 10px;
@@ -2056,7 +2281,7 @@ body.theme-night .achieve-item {
     }
 
     .exp-container {
-        display: none; /* 橫屏精簡，騰出 3D 視野 */
+        display: none;
     }
 
     .camera-hint-pill {
@@ -2064,7 +2289,7 @@ body.theme-night .achieve-item {
     }
 
     .stats-card {
-        margin: 0 8px 3px;
+        bottom: calc(50px + max(4px, env(safe-area-inset-bottom, 4px)));
         padding: 4px 8px;
     }
 
@@ -2073,7 +2298,7 @@ body.theme-night .achieve-item {
     }
 
     .action-dock {
-        margin: 0 8px max(4px, env(safe-area-inset-bottom, 4px));
+        bottom: calc(50px + max(4px, env(safe-area-inset-bottom, 4px)));
         padding: 4px 6px;
     }
 

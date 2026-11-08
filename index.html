@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Zen+Maru+Gothic:wght@400;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=v20_mobile_responsive_ultra">
+    <link rel="stylesheet" href="css/style.css?v=v21_mobile_single_row_dock">
     <!-- 引入 Three.js 3D 引擎與 OrbitControls 軌道控制器 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -158,6 +158,39 @@
                 <span class="dock-label">商城</span>
             </button>
         </nav>
+
+        <!-- 手機版精簡單行控制列（三大功能收折在同一行，點擊可展開，最大化空間留給 3D 主視窗） -->
+        <div class="mobile-collapsed-bar glass-panel" id="mobile-bar">
+            <!-- 功能 1 膠囊：寵物資訊・等級・金幣（點開展開頂部資訊與成長值） -->
+            <button class="mobile-bar-btn" id="m-toggle-profile" data-panel="top-nav" title="點開寵物資訊與經驗">
+                <span class="m-avatar" id="m-bar-avatar">🐶</span>
+                <div class="m-btn-text">
+                    <span class="m-name" id="m-bar-name">黑寶</span>
+                    <span class="m-sub"><span id="m-bar-badge">Lv.1</span> · 🪙<span id="m-bar-coins">150</span></span>
+                </div>
+                <span class="m-arrow">▲</span>
+            </button>
+
+            <!-- 功能 2 膠囊：狀態儀表盤（點開展開飽食/心情/體力/清潔 4 大數值） -->
+            <button class="mobile-bar-btn" id="m-toggle-stats" data-panel="stats-card" title="點開狀態值">
+                <span class="m-icon">💖</span>
+                <div class="m-btn-text">
+                    <span class="m-name">狀態值</span>
+                    <span class="m-sub" id="m-bar-avg-stat">85%</span>
+                </div>
+                <span class="m-arrow">▲</span>
+            </button>
+
+            <!-- 功能 3 膠囊：互動動作列（點開展開餵食/撫摸/洗澡/訓練/遊戲等 7 大動作） -->
+            <button class="mobile-bar-btn primary-m-btn" id="m-toggle-actions" data-panel="action-dock" title="點開互動動作">
+                <span class="m-icon">🐾</span>
+                <div class="m-btn-text">
+                    <span class="m-name">互動動作</span>
+                    <span class="m-sub">7項操作</span>
+                </div>
+                <span class="m-arrow">▲</span>
+            </button>
+        </div>
 
         <!-- 彈出子選單：餵食選單 -->
         <div class="floating-drawer hidden" id="feed-menu">
@@ -426,10 +459,10 @@
     </div>
 
     <!-- 核心腳本載入 -->
-    <script src="js/audio.js?v=v20_mobile_responsive_ultra"></script>
-    <script src="js/pet3d.js?v=v20_mobile_responsive_ultra"></script>
-    <script src="js/scene3d.js?v=v20_mobile_responsive_ultra"></script>
-    <script src="js/minigames.js?v=v20_mobile_responsive_ultra"></script>
-    <script src="js/game.js?v=v20_mobile_responsive_ultra"></script>
+    <script src="js/audio.js?v=v21_mobile_single_row_dock"></script>
+    <script src="js/pet3d.js?v=v21_mobile_single_row_dock"></script>
+    <script src="js/scene3d.js?v=v21_mobile_single_row_dock"></script>
+    <script src="js/minigames.js?v=v21_mobile_single_row_dock"></script>
+    <script src="js/game.js?v=v21_mobile_single_row_dock"></script>
 </body>
 </html>

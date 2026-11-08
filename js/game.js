@@ -686,6 +686,52 @@ class BlackDogGame {
         window.addEventListener('touchstart', unlockAudioOnTouch, { once: true, passive: true });
         window.addEventListener('pointerdown', unlockAudioOnTouch, { once: true, passive: true });
 
+        // 0.1 手機版單行控制列（同一行）點開／收合切換邏輯
+        const mobileButtons = [
+            { btnId: 'm-toggle-profile', panelClass: 'top-nav' },
+            { btnId: 'm-toggle-stats', panelClass: 'stats-card' },
+            { btnId: 'm-toggle-actions', panelClass: 'action-dock' }
+        ];
+
+        this.closeAllMobilePanels = () => {
+            mobileButtons.forEach(({ btnId, panelClass }) => {
+                const btn = document.getElementById(btnId);
+                const panel = document.querySelector(`.${panelClass}`);
+                if (btn) btn.classList.remove('active');
+                if (panel) panel.classList.remove('mobile-open');
+            });
+        };
+
+        mobileButtons.forEach(({ btnId, panelClass }) => {
+            const btn = document.getElementById(btnId);
+            const panel = document.querySelector(`.${panelClass}`);
+            if (btn && panel) {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isOpen = panel.classList.contains('mobile-open');
+                    this.closeAllMobilePanels();
+                    if (!isOpen) {
+                        panel.classList.add('mobile-open');
+                        btn.classList.add('active');
+                        if (window.soundCtrl) window.soundCtrl.playClick();
+                        if (navigator.vibrate) {
+                            try { navigator.vibrate(12); } catch (_) {}
+                        }
+                    }
+                });
+            }
+        });
+
+        // 點擊 3D 主畫面舞台任意處時，自動收合所有手機展開面板，還原最廣闊視野！
+        const stageEl = document.getElementById('stage');
+        if (stageEl) {
+            stageEl.addEventListener('pointerdown', (e) => {
+                if (window.innerWidth <= 768) {
+                    this.closeAllMobilePanels();
+                }
+            });
+        }
+
         // 1. 頂部改名按鈕
         document.getElementById('edit-name-btn').addEventListener('click', () => {
             document.getElementById('rename-input').value = this.currentPet.name;
@@ -1954,6 +2000,22 @@ class BlackDogGame {
         updateBar('mood', this.stats.mood);
         updateBar('energy', this.stats.energy);
         updateBar('clean', this.stats.clean);
+
+        // 同步手機版精簡單行控制列數值
+        const mAvatar = document.getElementById('m-bar-avatar');
+        const mName = document.getElementById('m-bar-name');
+        const mBadge = document.getElementById('m-bar-badge');
+        const mCoins = document.getElementById('m-bar-coins');
+        const mAvgStat = document.getElementById('m-bar-avg-stat');
+        const curAvatar = document.getElementById('current-pet-avatar');
+        if (mAvatar && curAvatar) mAvatar.textContent = curAvatar.textContent || '🐾';
+        if (mName) mName.textContent = pet.name;
+        if (mBadge) mBadge.textContent = `Lv.${pet.level}`;
+        if (mCoins) mCoins.textContent = this.coins;
+        if (mAvgStat) {
+            const avg = Math.round((this.stats.hunger + this.stats.mood + this.stats.energy + this.stats.clean) / 4);
+            mAvgStat.textContent = `${avg}%`;
+        }
 
         this.checkStageChange();
     }
